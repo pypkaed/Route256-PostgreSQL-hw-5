@@ -4,7 +4,7 @@
 - Как подготовить окружение [см. тут](./docs/01-prepare-environment.md)
 - Как накатить миграции на базу данных [см. тут](./docs/02-data-migrations.md)
 - **САМОЕ ВАЖНОЕ** - полное описание базы данных, схему и описание поле можно найти [тут](./docs/03-db-description.md)
-- Воркшоп и примеры запросов [см. тут](./docs/03-db-description.md)
+- Воркшоп и примеры запросов [см. тут](https://gitlab.ozon.dev/cs/classroom-9/students/week-5/workshop-5/-/blob/master/README.md)
 
 ## Основные требования
 - решением каждого задания является ОДИН SQL-запрос
