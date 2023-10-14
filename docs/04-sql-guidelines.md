@@ -3,17 +3,17 @@
 ```sql
    select t.assigned_to_user_id as assigned_to_user_id
         , count(1) as tasks_count
-   from tasks t
-            join task_statuses ts on ts.id = t.status
-            left join users u on u.id = t.assigned_to_user_id
-       and (u.blocked_at is null or u.blocked_at >= now())
-   where t.status = 1 /* InProgress */
-     and t.created_at between '20230101' and '20230601'
-   group by t.assigned_to_user_id
+     from tasks t
+     join task_statuses ts on ts.id = t.status
+left join users u on u.id = t.assigned_to_user_id
+                 and (u.blocked_at is null or u.blocked_at >= now())
+    where t.status = 1 /* InProgress */
+      and t.created_at between '20230101' and '20230601'
+    group by t.assigned_to_user_id
    having count(1) > 1
-   order by 2
-   limit 10
-       offset 3;
+    order by 2
+    limit 10
+   offset 3;
 ```
 
 Руководства:
