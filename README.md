@@ -41,7 +41,30 @@
 
 ### Решение
 ```sql
-/* ЗДЕСЬ ДОЛЖНО БЫТЬ РЕШЕНИЕ */
+  select t.id as task_number
+       , t.title as task_title
+       , t.created_at as created_at
+       , (select ts.name
+          from task_statuses ts
+          where ts.id = 4) as status_name
+       , (select u.email
+          from users u
+          where u.id = tl.created_by_user_id) as author_email
+       , (select u.email
+          from users u
+          where u.id = tl.assigned_to_user_id) as assignee_email
+       , tl.at as in_progress_at
+       , t.completed_at as completed_at
+       , to_char(t.completed_at - tl.at, 'dd HH24:MI:SS') as work_duration
+    from tasks t
+    join task_logs tl on tl.task_id = t.id
+   where tl.status = 3 /* InProgress */
+     and t.completed_at is not null
+     and t.id not in (select distinct tl.id
+                        from task_logs tl
+                       where tl.status = 5 /* Cancelled */)
+   order by work_duration desc
+   limit 100;
 ```
 
 ## Задание 2: Выбора для проверки вложенности
@@ -59,7 +82,25 @@
 
 ### Решение
 ```sql
-/* ЗДЕСЬ ДОЛЖНО БЫТЬ РЕШЕНИЕ */
+    with recursive cte as (select t.id
+                                , t.parent_task_id
+                                , 2 as level
+                                , '/' || t.parent_task_id::text || '/' || t.id as path
+                           from tasks t
+                           where t.parent_task_id = :parent_task_id
+                           union all
+                          select t1.id
+                                , t1.parent_task_id
+                                , c.level + 1 as level
+                                , c.path || '/' || t1.id::text as path
+                            from tasks t1
+                            join cte c on c.id = t1.parent_task_id)
+    select c.id
+         , c.level
+         , c.path
+      from cte c
+     order by level desc
+     limit 1;
 ```
 
 ## Задание 3 (за алмазик): Получить переписку по заданию в формате "вопрос-ответ"
@@ -104,5 +145,43 @@
 
 ### Решение
 ```sql
-/* ЗДЕСЬ ДОЛЖНО БЫТЬ РЕШЕНИЕ */
+  with
+    newest_tasks as(select t.id
+                         , t.created_by_user_id
+                         , t.assigned_to_user_id
+                    from tasks t
+                    order by t.created_at desc
+                    limit 5)
+    , thingy as (select nt.id as task_id
+                      , nt.created_by_user_id as task_author
+                      , nt.assigned_to_user_id as task_assignee
+                      , tc.author_user_id as message_author
+                      , case
+                         when tc.author_user_id = nt.created_by_user_id
+                         then tc.message
+                          end as question
+                      , case
+                         when lead(tc.author_user_id) over (partition by nt.id) = nt.assigned_to_user_id
+                         then lead(tc.message) over (partition by nt.id)
+                          end as answer
+                      , case
+                         when lead(tc.author_user_id) over (partition by nt.id) = nt.assigned_to_user_id
+                         then lead(tc.at) over (partition by nt.id)
+                          end as answered_at
+                      , tc.at as asked_at
+                   from newest_tasks nt
+                   join task_comments tc on tc.task_id = nt.id)
+  select t.task_id as task_number
+       , (select u.email
+          from users u
+          where u.id = t.task_author) as author_email
+       , (select u.email
+          from users u
+          where u.id = t.task_assignee) as assignee_email
+       , t.question as question
+       , t.answer as answer
+       , t.asked_at as asked_at
+       , t.answered_at as answered_at
+    from thingy t
+   where question is not null;
 ```
