@@ -145,43 +145,29 @@
 
 ### Решение
 ```sql
-  with
-    newest_tasks as(select t.id
-                         , t.created_by_user_id
-                         , t.assigned_to_user_id
-                    from tasks t
-                    order by t.created_at desc
-                    limit 5)
-    , thingy as (select nt.id as task_id
-                      , nt.created_by_user_id as task_author
-                      , nt.assigned_to_user_id as task_assignee
-                      , tc.author_user_id as message_author
-                      , case
-                         when tc.author_user_id = nt.created_by_user_id
-                         then tc.message
-                          end as question
-                      , case
-                         when lead(tc.author_user_id) over (partition by nt.id) = nt.assigned_to_user_id
-                         then lead(tc.message) over (partition by nt.id)
-                          end as answer
-                      , case
-                         when lead(tc.author_user_id) over (partition by nt.id) = nt.assigned_to_user_id
-                         then lead(tc.at) over (partition by nt.id)
-                          end as answered_at
-                      , tc.at as asked_at
-                   from newest_tasks nt
-                   join task_comments tc on tc.task_id = nt.id)
-  select t.task_id as task_number
-       , (select u.email
-          from users u
-          where u.id = t.task_author) as author_email
-       , (select u.email
-          from users u
-          where u.id = t.task_assignee) as assignee_email
-       , t.question as question
-       , t.answer as answer
-       , t.asked_at as asked_at
-       , t.answered_at as answered_at
-    from thingy t
-   where question is not null;
+    with newest_tasks as (select t.id
+                               , t.created_by_user_id
+                               , t.assigned_to_user_id
+                            from tasks t
+                           order by t.created_at desc
+                           limit 5)
+    select nt.id as task_number
+         , (select u.email
+            from users u
+            where u.id = nt.created_by_user_id) as author_email
+         , (select u.email
+            from users u
+            where u.id = nt.assigned_to_user_id) as assignee_email
+         , tc1.message as question
+         , tc2.message as answer
+         , tc1.at as asked_at
+         , tc2.at as answered_at
+      from newest_tasks nt
+      join task_comments tc1 on tc1.task_id = nt.id
+                            and tc1.author_user_id = nt.created_by_user_id
+ left join task_comments tc2 on tc2.task_id = tc1.task_id
+                            and tc2.author_user_id = nt.assigned_to_user_id
+                            and tc1.id < tc2.id
+     where tc1.author_user_id = nt.created_by_user_id
+     order by task_number, answered_at;
 ```
