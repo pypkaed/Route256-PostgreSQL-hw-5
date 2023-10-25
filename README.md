@@ -145,29 +145,53 @@
 
 ### Решение
 ```sql
-    with newest_tasks as (select t.id
-                               , t.created_by_user_id
-                               , t.assigned_to_user_id
-                            from tasks t
-                           order by t.created_at desc
-                           limit 5)
-    select nt.id as task_number
+with newest_tasks as (select t.id
+                           , t.created_by_user_id
+                           , t.assigned_to_user_id
+                      from tasks t
+                      order by t.created_at desc
+                      limit 5)
+   , questions as (select tc.id
+                        , tc.task_id
+                        , tc.author_user_id
+                        , tc.message
+                        , tc.at
+                        , case when lead(tc.at) over (partition by tc.task_id order by tc.at) is not null
+                               then lead(tc.at) over (partition by tc.task_id order by tc.at)
+                               else (timestamp '9999-01-01')
+                           end as next_at
+                     from tasks t
+                     join task_comments tc on tc.task_id = t.id
+                    where t.created_by_user_id = tc.author_user_id
+                    order by tc.at)
+   , answers as (select tc.id
+                      , tc.task_id
+                      , tc.author_user_id
+                      , tc.message
+                      , tc.at
+                   from tasks t
+                   join task_comments tc on tc.task_id = t.id
+                  where t.assigned_to_user_id = tc.author_user_id
+                  order by tc.at)
+    select t.id as task_number
+         , t.created_by_user_id as task_author
+         , t.assigned_to_user_id as task_assignee
          , (select u.email
             from users u
-            where u.id = nt.created_by_user_id) as author_email
+            where u.id = t.created_by_user_id) as author_email
          , (select u.email
             from users u
-            where u.id = nt.assigned_to_user_id) as assignee_email
-         , tc1.message as question
-         , tc2.message as answer
-         , tc1.at as asked_at
-         , tc2.at as answered_at
-      from newest_tasks nt
-      join task_comments tc1 on tc1.task_id = nt.id
-                            and tc1.author_user_id = nt.created_by_user_id
- left join task_comments tc2 on tc2.task_id = tc1.task_id
-                            and tc2.author_user_id = nt.assigned_to_user_id
-                            and tc1.id < tc2.id
-     where tc1.author_user_id = nt.created_by_user_id
+            where u.id = t.assigned_to_user_id) as assignee_email
+         , q.message as question
+         , a.message as answer
+         , q.at as asked_at
+         , a.at as answered_at
+      from newest_tasks t
+ left join questions q on q.task_id = t.id
+                      and q.author_user_id = t.created_by_user_id
+ left join answers a on a.task_id = q.task_id
+                    and a.at >= q.at
+                    and a.at < q.next_at
+     where q.author_user_id = t.created_by_user_id
      order by task_number, answered_at;
 ```
